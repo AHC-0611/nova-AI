@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
+<title>Nova AI · Your universe of answers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+<link rel="icon" href='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"%3E%3Cg transform="rotate(-18 60 64)"%3E%3Cellipse cx="60" cy="64" rx="56" ry="13" fill="none" stroke="#a46bff" stroke-width="7"/%3E%3C/g%3E%3Cline x1="60" y1="30" x2="60" y2="15" stroke="#7c8cff" stroke-width="6" stroke-linecap="round"/%3E%3Ccircle cx="60" cy="12" r="7" fill="#a46bff"/%3E%3Ccircle cx="60" cy="64" r="36" fill="#1d2134" stroke="#7c8cff" stroke-width="6"/%3E%3Crect x="32" y="52" width="56" height="24" rx="12" fill="#090b13"/%3E%3Ccircle cx="48" cy="64" r="6" fill="#5ee0ff"/%3E%3Ccircle cx="72" cy="64" r="6" fill="#5ee0ff"/%3E%3C/svg%3E' />
+<style>
+  :root, [data-theme="dark"] {
+    --bg: #0e0f13; --panel: #15171d; --panel2: #1d2029; --line: #2a2e3a; --hover: #232733;
+    --text: #e8e9ee; --muted: #8b90a0; --accent: #7c8cff; --accent2: #a46bff;
+    --user: #262a36; --danger: #ff6b6b; --code: #12141a;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff; --panel: #f6f7f9; --panel2: #eceef3; --line: #dfe2e8; --hover: #e7e9ef;
+    --text: #1a1c22; --muted: #6a7080; --accent: #5865f2; --accent2: #8b4dff;
+    --user: #eef0f6; --danger: #d93838; --code: #f3f4f7;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; overflow: hidden;
+  }
+  button {
+    font: inherit; color: var(--text); background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.ghost { background: none; border-color: transparent; }
+  button.ghost:hover { background: var(--hover); border-color: transparent; }
+  button.icon { padding: 6px 8px; line-height: 1; }
+  select, input[type=text], input[type=password], textarea.field {
+    font: inherit; color: var(--text); background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+  }
+  .grad { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* ---------- sidebar ---------- */
+  #sidebar {
+    width: 270px; flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; padding: 12px; gap: 10px; transition: transform .2s;
+  }
+  .brand { font-family: "Space Grotesk", system-ui, sans-serif; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; padding: 2px 4px; }
+  #newChat { width: 100%; text-align: left; display: flex; gap: 8px; align-items: center; }
+  #search { width: 100%; }
+  #chatList { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+  .group { font-size: 12px; color: var(--muted); margin: 12px 6px 4px; }
+  .chatItem {
+    display: flex; align-items: center; gap: 4px; padding: 7px 8px; border-radius: 8px; cursor: pointer;
+    font-size: 14px; white-space: nowrap;
+  }
+  .chatItem:hover { background: var(--hover); }
+  .chatItem.active { background: var(--panel2); }
+  .chatItem .t { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .chatItem .acts { display: none; gap: 2px; }
+  .chatItem:hover .acts, .chatItem.active .acts { display: flex; }
+  .chatItem .acts button { padding: 2px 6px; font-size: 12px; background: none; border: none; color: var(--muted); }
+  .chatItem .acts button:hover { color: var(--text); }
+  .chatItem input { flex: 1; min-width: 0; padding: 2px 6px; font-size: 14px; }
+  .sideFoot { display: flex; gap: 6px; }
+  .sideFoot button { flex: 1; }
+  #scrim { display: none; }
+
+  /* ---------- main ---------- */
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+  header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  #menuBtn { display: none; }
+  .spacer { flex: 1; }
+  .toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; cursor: pointer; user-select: none; }
+  .toggle input { accent-color: var(--accent); }
+  #chat { flex: 1; overflow-y: auto; padding: 24px 16px 8px; }
+  .wrap { max-width: 800px; margin: 0 auto; }
+  .empty { text-align: center; color: var(--muted); margin-top: 10vh; }
+  .slogan { font: 500 12px/1 "Space Grotesk", system-ui, sans-serif; letter-spacing: 4px; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  .empty h1 { color: var(--text); font-size: 30px; margin: 0 0 6px; }
+  .chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 26px auto 0; max-width: 640px; }
+  .chips button { text-align: left; padding: 12px 14px; border-radius: 12px; color: var(--muted); font-size: 14px; }
+  .chips button b { display: block; color: var(--text); font-weight: 600; }
+
+  .msg { margin: 0 0 22px; display: flex; flex-direction: column; }
+  .msg.user { align-items: flex-end; }
+  .bubble { max-width: 100%; overflow-wrap: anywhere; }
+  .msg.user .bubble { background: var(--user); padding: 10px 14px; border-radius: 16px 16px 4px 16px; max-width: 85%; white-space: pre-wrap; }
+  .bubble p { margin: 0 0 10px; }
+  .bubble > :last-child { margin-bottom: 0; }
+  .bubble h1, .bubble h2, .bubble h3 { margin: 16px 0 8px; line-height: 1.3; }
+  .bubble h1 { font-size: 21px; } .bubble h2 { font-size: 18px; } .bubble h3 { font-size: 16px; }
+  .bubble ul, .bubble ol { margin: 0 0 10px; padding-left: 24px; }
+  .bubble li { margin: 2px 0; }
+  .bubble a { color: var(--accent); }
+  .bubble hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+  .bubble code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 13.5px; font-family: ui-monospace, Consolas, monospace; }
+  .codeBox { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 12px; overflow: hidden; background: var(--code); }
+  .codeHead { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); padding: 4px 6px 4px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .codeHead button { font-size: 12px; padding: 2px 8px; }
+  .bubble pre { margin: 0; padding: 12px; overflow-x: auto; }
+  .bubble pre code { background: none; padding: 0; white-space: pre; }
+  .bubble blockquote { margin: 0 0 10px; padding-left: 12px; border-left: 3px solid var(--line); color: var(--muted); }
+  .tableWrap { overflow-x: auto; margin: 0 0 12px; }
+  .bubble table { border-collapse: collapse; font-size: 14px; }
+  .bubble th, .bubble td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  .bubble th { background: var(--panel); }
+  .cursor::after { content: "▍"; color: var(--accent); animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .thinking { color: var(--muted); font-style: italic; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .4; } }
+  .tools { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .tools button { font-size: 12.5px; padding: 3px 9px; color: var(--muted); background: none; border-color: transparent; }
+  .tools button:hover { color: var(--text); background: var(--hover); }
+  .msg.user .tools { opacity: 0; transition: opacity .15s; }
+  .msg.user:hover .tools { opacity: 1; }
+  .sources { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .sources a { color: var(--muted); display: inline-block; margin: 3px 6px 3px 0; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+  .sources a:hover { color: var(--text); border-color: var(--accent); }
+  .error { color: var(--danger); }
+  .note { color: var(--muted); font-size: 13px; font-style: italic; margin-top: 8px; }
+  .thumbs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-bottom: 6px; }
+  .thumbs img { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); cursor: zoom-in; }
+  .fileTag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); margin: 0 0 6px 6px; }
+  .editBox { width: min(100%, 640px); }
+  .editBox textarea { width: 100%; min-height: 80px; resize: vertical; }
+  .editBox .row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+
+  /* ---------- composer ---------- */
+  footer { padding: 8px 16px 14px; }
+  .composer { max-width: 800px; margin: 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 8px; }
+  .composer:focus-within { border-color: var(--accent); }
+  #pending { display: flex; gap: 8px; flex-wrap: wrap; }
+  #pending:not(:empty) { padding: 4px 4px 8px; }
+  .pend { position: relative; display: flex; align-items: center; gap: 6px; font-size: 13px; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 4px 26px 4px 6px; max-width: 220px; }
+  .pend img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; }
+  .pend span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pend button { position: absolute; top: 2px; right: 2px; padding: 0 6px; font-size: 13px; border: none; background: none; color: var(--muted); }
+  .row2 { display: flex; gap: 6px; align-items: flex-end; }
+  #input { flex: 1; resize: none; border: none; outline: none; background: transparent; color: var(--text); font: inherit; padding: 7px 6px; max-height: 240px; }
+  #send { background: linear-gradient(90deg, var(--accent), var(--accent2)); border: none; font-weight: 600; padding: 8px 16px; color: #fff; }
+  #mic.on { color: var(--danger); border-color: var(--danger); animation: pulse 1.2s infinite; }
+  .hint { text-align: center; color: var(--muted); font-size: 12px; margin-top: 8px; }
+  #dropZone { position: absolute; inset: 0; background: color-mix(in srgb, var(--accent) 15%, transparent); border: 3px dashed var(--accent); display: none; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; z-index: 5; pointer-events: none; }
+
+  /* ---------- modals ---------- */
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .modal.show { display: flex; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; width: min(520px, 100%); max-height: 90vh; overflow-y: auto; }
+  .card h2 { margin: 0 0 4px; font-size: 19px; }
+  .card label { display: block; font-weight: 600; margin: 16px 0 6px; }
+  .card .sub { color: var(--muted); font-size: 13px; font-weight: 400; }
+  .card textarea.field { width: 100%; min-height: 110px; resize: vertical; }
+  .card .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
+  .danger { color: var(--danger); }
+  #viewer img { max-width: 95vw; max-height: 90vh; border-radius: 10px; }
+  #toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line); padding: 8px 16px; border-radius: 999px; font-size: 14px; display: none; z-index: 30; }
+
+  /* ---------- launch screen ---------- */
+  #splash {
+    position: fixed; inset: 0; z-index: 100; cursor: pointer; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 45%, #171b31 0%, #0b0c12 62%, #07080c 100%);
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity .65s ease, transform .65s ease, filter .65s ease;
+  }
+  #splash.out { opacity: 0; transform: scale(1.12); filter: blur(6px); pointer-events: none; }
+  #splashCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .sp-center { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .sp-mark { overflow: visible; }
+  .sp-bot { opacity: 0; transform-origin: 60px 64px; transform: scale(.3) rotate(-25deg); transition: opacity .3s ease, transform .8s cubic-bezier(.2, 1.7, .4, 1); }
+  .sp-glow { fill: #7c8cff; opacity: 0; transform-origin: 60px 64px; filter: blur(12px); transition: opacity .6s ease, transform .6s ease; }
+  .sp-orbit { fill: none; stroke: #a46bff; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 250; stroke-dashoffset: 250; transition: stroke-dashoffset .9s cubic-bezier(.6, 0, .2, 1) .15s; }
+  .sp-eyes path { fill: #5ee0ff; }
+  .sp-eyes { transform-origin: 60px 63px; transform: scaleY(.1); transition: transform .25s ease .55s; }
+  .sp-antenna { fill: #a46bff; transform-origin: 60px 13px; }
+  #splash.s2 .sp-bot { opacity: 1; transform: none; }
+  #splash.s2 .sp-glow { opacity: .45; }
+  #splash.s2 .sp-orbit { stroke-dashoffset: 0; }
+  #splash.s2 .sp-eyes { transform: none; }
+  #splash.s3 .sp-eyes { animation: spBlink 1.1s ease .2s 1; }
+  #splash.s3 .sp-antenna { animation: spPing 1s ease-in-out infinite; }
+  @keyframes spBlink { 0%, 40%, 60%, 100% { transform: none; } 50% { transform: scaleY(.1); } }
+  @keyframes spPing { 50% { transform: scale(1.5); fill: #5ee0ff; } }
+  #splash.s4 .sp-bot { transform: scale(1.2); transition: transform .35s cubic-bezier(.3, 0, .2, 1); }
+  #splash.s4 .sp-glow { opacity: 1; transform: scale(2.4); }
+  .sp-word { font: 700 58px/1 "Space Grotesk", system-ui, sans-serif; color: #f2f3f7; letter-spacing: -2px; display: flex; align-items: baseline; }
+  .sp-word span, .sp-word em { display: inline-block; opacity: 0; transform: translateY(22px) scale(.9); filter: blur(8px); transition: opacity .5s ease, transform .6s cubic-bezier(.2, 1.4, .4, 1), filter .5s ease; }
+  .sp-word em { font-style: normal; font-weight: 500; font-size: 24px; color: #7c8cff; margin-left: 10px; letter-spacing: 1px; }
+  .sp-word :nth-child(2) { transition-delay: .06s; } .sp-word :nth-child(3) { transition-delay: .12s; }
+  .sp-word :nth-child(4) { transition-delay: .18s; } .sp-word :nth-child(5) { transition-delay: .3s; }
+  #splash.s3 .sp-word span, #splash.s3 .sp-word em { opacity: 1; transform: none; filter: none; }
+  .sp-tag { color: #8b90a0; font: 500 12px/1.4 "Space Grotesk", system-ui, sans-serif; letter-spacing: 4px; text-transform: uppercase; opacity: 0; transition: opacity .5s ease .35s; min-height: 17px; }
+  #splash.s3 .sp-tag { opacity: 1; }
+  .sp-skip { position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; color: #5a5f72; font-size: 12px; letter-spacing: 1px; }
+
+  @media (max-width: 820px) {
+    #sidebar { position: fixed; z-index: 15; top: 0; bottom: 0; left: 0; transform: translateX(-100%); }
+    #sidebar.open { transform: none; }
+    #sidebar.open + #scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 14; }
+    #menuBtn { display: inline-block; }
+    .chips { grid-template-columns: 1fr 1fr; }
+    .msg.user .tools { opacity: 1; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<!-- Launch screen: stardust pulls together into the Nova bot, its orbit ring draws, it blinks,
+     the name rises, then it bursts and reveals the app. Shows once per tab;
+     click to skip. Respects "reduce motion". -->
+<div id="splash" aria-hidden="true">
+  <canvas id="splashCanvas"></canvas>
+  <div class="sp-center">
+    <svg class="sp-mark" width="160" height="160" viewBox="0 0 120 120">
+      <defs><clipPath id="spFront"><rect x="-20" y="64" width="160" height="60"></rect></clipPath></defs>
+      <circle class="sp-glow" cx="60" cy="64" r="34"></circle>
+      <g transform="rotate(-18 60 64)"><ellipse class="sp-orbit" cx="60" cy="64" rx="56" ry="13"></ellipse></g>
+      <g class="sp-bot">
+        <line x1="60" y1="30" x2="60" y2="17" stroke="#7c8cff" stroke-width="4" stroke-linecap="round"></line>
+        <circle class="sp-antenna" cx="60" cy="13" r="5"></circle>
+        <circle cx="60" cy="64" r="34" fill="#1d2134" stroke="#7c8cff" stroke-width="4"></circle>
+        <rect x="34" y="53" width="52" height="22" rx="11" fill="#090b13"></rect>
+        <g class="sp-eyes">
+          <path d="M49 56 C49.8 61 51 62.2 56 63 C51 63.8 49.8 65 49 70 C48.2 65 47 63.8 42 63 C47 62.2 48.2 61 49 56 Z"></path>
+          <path d="M71 56 C71.8 61 73 62.2 78 63 C73 63.8 71.8 65 71 70 C70.2 65 69 63.8 64 63 C69 62.2 70.2 61 71 56 Z"></path>
+        </g>
+      </g>
+      <g transform="rotate(-18 60 64)" clip-path="url(#spFront)"><ellipse class="sp-orbit" cx="60" cy="64" rx="56" ry="13"></ellipse></g>
+    </svg>
+    <div class="sp-word"><span>n</span><span>o</span><span>v</span><span>a</span><em>AI</em></div>
+    <div class="sp-tag" id="spTag"></div>
+  </div>
+  <div class="sp-skip">click anywhere to skip</div>
+</div>
+<script>
+(() => {
+  const sp = document.getElementById('splash');
+  let seen = false;
+  try { seen = sessionStorage.getItem('nova.splash') === '1'; sessionStorage.setItem('nova.splash', '1'); } catch {}
+  if (seen) { sp.remove(); return; }
+
+  document.getElementById('spTag').textContent = 'Your universe of answers';
+
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cv = document.getElementById('splashCanvas');
+  const ctx = cv.getContext('2d');
+  let W, H, dpr, cx, cy, R;
+  function size() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const box = sp.querySelector('.sp-mark').getBoundingClientRect();
+    cx = box.left + box.width / 2; cy = box.top + box.height / 2;
+    R = box.width * 0.29; // the bot head's radius in the mark
+    cy += box.height * 0.035; // head sits a little below the mark's center
+  }
+  size(); addEventListener('resize', size);
+
+  const COLORS = ['#7c8cff', '#a46bff', '#c9d0ff', '#ffffff'];
+  const rand = (a, b) => a + Math.random() * (b - a);
+  // Background stars that twinkle.
+  const sky = Array.from({ length: Math.round((W * H) / 9000) }, () => ({ x: Math.random(), y: Math.random(), r: rand(.3, 1.3), p: rand(0, 6.3), s: rand(.6, 2) }));
+  // Stardust: each grain flies in to a spot inside the bot's round head.
+  const N = reduce ? 0 : W < 600 ? 110 : 190;
+  const dust = Array.from({ length: N }, () => {
+    const t = rand(0, Math.PI * 2), k = Math.sqrt(Math.random());
+    const a = rand(0, Math.PI * 2), d = rand(.6, 1.1) * Math.hypot(W, H) / 2;
+    return {
+      sx: Math.cos(a) * d, sy: Math.sin(a) * d,
+      tx: Math.cos(t) * k, ty: Math.sin(t) * k,
+      delay: rand(0, 380), dur: rand(520, 820), r: rand(.8, 2.2),
+      c: COLORS[Math.floor(Math.random() * COLORS.length)],
+      vx: 0, vy: 0, x: 0, y: 0,
+    };
+  });
+
+  const start = performance.now();
+  const T = reduce ? { s2: 0, s3: 150, burst: 900, out: 1000, end: 1700 } : { s2: 880, s3: 1350, burst: 2350, out: 2650, end: 3350 };
+  let burstAt = 0, done = false, raf;
+  const ease = (p) => 1 - Math.pow(1 - p, 3);
+
+  function frame(now) {
+    const t = now - start;
+    ctx.clearRect(0, 0, W, H);
+    for (const s of sky) {
+      ctx.globalAlpha = .25 + .45 * (0.5 + 0.5 * Math.sin(s.p + t / 1000 * s.s));
+      ctx.fillStyle = '#c9d0ff';
+      ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, 6.29); ctx.fill();
+    }
+    if (t >= T.burst && !burstAt) {
+      burstAt = t; sp.classList.add('s4');
+      for (const d of dust) { const a = Math.atan2(d.y - cy, d.x - cx) + rand(-.4, .4); const v = rand(6, 16); d.vx = Math.cos(a) * v; d.vy = Math.sin(a) * v; }
+    }
+    for (const d of dust) {
+      if (!burstAt) {
+        const p = Math.min(1, Math.max(0, (t - d.delay) / d.dur));
+        const e = ease(p);
+        d.x = cx + d.sx * (1 - e) + d.tx * R * e;
+        d.y = cy + d.sy * (1 - e) + d.ty * R * e;
+        const fade = t > T.s2 ? Math.max(0, 1 - (t - T.s2) / 300) : 1;
+        ctx.globalAlpha = (0.3 + 0.7 * e) * fade;
+        if (p < 1 && p > 0) { // little comet tail while flying in
+          ctx.strokeStyle = d.c; ctx.lineWidth = d.r * .8;
+          ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + d.sx * .06 * (1 - e), d.y + d.sy * .06 * (1 - e)); ctx.stroke();
+        }
+      } else {
+        d.x += d.vx; d.y += d.vy; d.vx *= .97; d.vy *= .97;
+        ctx.globalAlpha = Math.max(0, 1 - (t - burstAt) / 700);
+      }
+      ctx.fillStyle = d.c;
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.29); ctx.fill();
+    }
+    if (burstAt) { // shockwave ring
+      const p = Math.min(1, (t - burstAt) / 650);
+      ctx.globalAlpha = (1 - p) * .9;
+      ctx.strokeStyle = '#a46bff'; ctx.lineWidth = 3 * (1 - p) + .5;
+      ctx.beginPath(); ctx.arc(cx, cy, 20 + ease(p) * Math.hypot(W, H) * .6, 0, 6.29); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    if (!done) raf = requestAnimationFrame(frame);
+  }
+
+  const timers = [
+    setTimeout(() => sp.classList.add('s2'), T.s2),
+    setTimeout(() => sp.classList.add('s3'), T.s3),
+    setTimeout(() => sp.classList.add('out'), T.out),
+    setTimeout(finish, T.end),
+  ];
+  function finish() {
+    if (done) return; done = true;
+    timers.forEach(clearTimeout); cancelAnimationFrame(raf);
+    removeEventListener('resize', size); sp.remove();
+  }
+  sp.addEventListener('click', () => { sp.classList.add('out'); setTimeout(finish, 450); });
+  raf = requestAnimationFrame(frame);
+})();
+</script>
+<aside id="sidebar">
+  <div class="brand"><svg width="26" height="26" viewBox="0 0 120 120" aria-hidden="true"><g transform="rotate(-18 60 64)"><ellipse cx="60" cy="64" rx="56" ry="13" fill="none" stroke="#a46bff" stroke-width="7"/></g><line x1="60" y1="30" x2="60" y2="15" stroke="#7c8cff" stroke-width="6" stroke-linecap="round"/><circle cx="60" cy="12" r="7" fill="#a46bff"/><circle cx="60" cy="64" r="36" fill="#1d2134" stroke="#7c8cff" stroke-width="6"/><rect x="32" y="52" width="56" height="24" rx="12" fill="#090b13"/><circle cx="48" cy="64" r="6" fill="#5ee0ff"/><circle cx="72" cy="64" r="6" fill="#5ee0ff"/></svg><span class="grad">Nova AI</span></div>
+  <button id="newChat">＋ New chat</button>
+  <input id="search" type="text" placeholder="Search chats…" />
+  <div id="chatList"></div>
+  <div class="sideFoot">
+    <button id="settingsBtn">⚙ Settings</button>
+  </div>
+</aside>
+<div id="scrim"></div>
+
+<div id="main">
+  <header>
+    <button id="menuBtn" class="icon ghost" title="Chats">☰</button>
+    <select id="model" title="Choose a model">
+      <option value="smart">Smart</option>
+      <option value="fast">Fast</option>
+    </select>
+    <label class="toggle" id="webWrap" title="Lets Nova search the web for current info">
+      <input type="checkbox" id="web" checked /> Web search
+    </label>
+    <span class="spacer"></span>
+    <button id="exportBtn" class="icon ghost" title="Download this chat">⤓</button>
+  </header>
+
+  <main id="chat"><div class="wrap" id="list"></div></main>
+
+  <footer>
+    <div class="composer">
+      <div id="pending"></div>
+      <div class="row2">
+        <button id="attachBtn" class="icon ghost" title="Attach images or files (PDF, Word, text, code)">📎</button>
+        <textarea id="input" rows="1" placeholder="Message Nova…"></textarea>
+        <button id="mic" class="icon ghost" title="Talk instead of typing">🎤</button>
+        <button id="send">Send</button>
+      </div>
+    </div>
+    <div class="hint">Enter to send · Shift+Enter for a new line · Paste or drop images and files · Nova can make mistakes, double-check important stuff · Don't share private info</div>
+  </footer>
+  <div id="dropZone">Drop files to attach</div>
+</div>
+
+<input type="file" id="fileInput" multiple hidden accept="image/*,.pdf,.docx,.txt,.md,.csv,.json,.js,.ts,.jsx,.tsx,.py,.java,.c,.cpp,.h,.cs,.go,.rs,.rb,.php,.html,.css,.xml,.yml,.yaml,.sql,.sh,.lua,.luau,.ini,.toml,.log" />
+
+<div class="modal" id="settings">
+  <div class="card">
+    <h2>Settings</h2>
+    <label>Custom instructions <span class="sub">— what Nova should know about you, or how it should reply</span></label>
+    <textarea class="field" id="instructions" maxlength="1500" placeholder="e.g. Keep answers short. I'm learning Luau for Roblox, so explain code simply."></textarea>
+    <label>Theme</label>
+    <select id="theme"><option value="system">Match my device</option><option value="dark">Dark</option><option value="light">Light</option></select>
+    <label>Read-aloud voice</label>
+    <select id="voice"><option value="">Default</option></select>
+    <label>Data <span class="sub">— chats are saved only in this browser</span></label>
+    <button id="clearAll" class="danger">Delete all chats</button>
+    <div class="actions"><button id="settingsClose">Done</button></div>
+  </div>
+</div>
+
+<div class="modal" id="pwBox">
+  <div class="card" style="width:min(360px,100%)">
+    <h2>Password</h2>
+    <div class="sub">This Nova is private. Enter the password to use it.</div>
+    <input id="pwInput" type="password" placeholder="Password" style="width:100%;margin-top:14px" />
+    <div class="actions"><button id="pwSave">Continue</button></div>
+  </div>
+</div>
+
+<div class="modal" id="viewer"><img alt="" /></div>
+<div id="toast"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const list = $('list'), chat = $('chat'), input = $('input'), sendBtn = $('send');
+
+  // ================= storage =================
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+  };
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  let chats = store.get('nova.chats', null);
+  if (!Array.isArray(chats)) {
+    chats = [];
+    const old = store.get('nova.messages', []); // from the first version of Nova
+    if (old.length) chats.push({ id: uid(), title: titleFrom(old[0].text), updated: Date.now(), messages: old });
+  }
+  let currentId = store.get('nova.current', null);
+  let settings = Object.assign({ instructions: '', theme: 'dark', model: 'smart', web: true, voice: '' }, store.get('nova.settings', {}));
+  let password = store.get('nova.password', '');
+  // A random id for this browser, used only for the fair-use message limit.
+  let visitor = store.get('nova.visitor', '');
+  if (!/^[a-z0-9-]{8,64}$/i.test(visitor)) { visitor = (crypto.randomUUID ? crypto.randomUUID() : uid() + uid()); store.set('nova.visitor', visitor); }
+  let pending = []; // attachments waiting to be sent: {kind:'image', data} | {kind:'file', name, text}
+  let controller = null;
+  let serverInfo = { web: true };
+
+  function current() { return chats.find((c) => c.id === currentId) || null; }
+  function saveChats() {
+    chats.sort((a, b) => b.updated - a.updated);
+    if (store.set('nova.chats', chats)) return store.set('nova.current', currentId);
+    // Out of space: drop saved images from other chats, then from all chats.
+    for (const c of chats) if (c.id !== currentId) for (const m of c.messages) if (m.images) delete m.images;
+    if (!store.set('nova.chats', chats)) {
+      for (const c of chats) for (const m of c.messages) if (m.images) delete m.images;
+      if (!store.set('nova.chats', chats)) toast("Browser storage is full, so this chat won't be saved. Delete some old chats.");
+    }
+    store.set('nova.current', currentId);
+  }
+  function saveSettings() { store.set('nova.settings', settings); }
+  function titleFrom(t) { t = (t || 'New chat').replace(/\s+/g, ' ').trim(); return t.length > 42 ? t.slice(0, 40) + '…' : t || 'New chat'; }
+
+  // ================= helpers =================
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  let toastTimer;
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.style.display = 'none', 2600); }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); }
+    catch { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch {} t.remove(); }
+  }
+
+  // ================= markdown =================
+  function inline(s) {
+    const codes = [];
+    s = s.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
+    s = esc(s);
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    s = s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, '$1<em>$2</em>');
+    s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+    s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${esc(codes[+i])}</code>`);
+    return s;
+  }
+  const splitRow = (l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+  const isTableSep = (l) => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l || '');
+  const BLOCK_START = /^(```|#{1,6}\s|>\s?|\s*[-*+]\s+|\s*\d+[.)]\s+|\s*(-{3,}|\*{3,})\s*$)/;
+  function md(src) {
+    const lines = src.replace(/\r/g, '').split('\n');
+    let html = '', i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const fence = line.match(/^\s*```\s*([\w+#.-]*)/);
+      if (fence) {
+        const buf = []; i++;
+        while (i < lines.length && !/^\s*```/.test(lines[i])) buf.push(lines[i++]);
+        i++;
+        html += `<div class="codeBox"><div class="codeHead"><span>${esc(fence[1] || 'code')}</span><button class="copyCode">Copy</button></div><pre><code>${esc(buf.join('\n'))}</code></pre></div>`;
+        continue;
+      }
+      if (line.includes('|') && isTableSep(lines[i + 1])) {
+        const head = splitRow(line); i += 2;
+        let rows = '';
+        while (i < lines.length && lines[i].includes('|') && lines[i].trim()) {
+          rows += '<tr>' + splitRow(lines[i]).map((c) => `<td>${inline(c)}</td>`).join('') + '</tr>'; i++;
+        }
+        html += `<div class="tableWrap"><table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+        continue;
+      }
+      const h = line.match(/^(#{1,6})\s+(.*)/);
+      if (h) { const n = Math.min(h[1].length, 3); html += `<h${n}>${inline(h[2])}</h${n}>`; i++; continue; }
+      if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) { html += '<hr>'; i++; continue; }
+      if (/^\s*[-*+]\s+/.test(line) || /^\s*\d+[.)]\s+/.test(line)) {
+        const ordered = /^\s*\d+[.)]\s+/.test(line);
+        const re = ordered ? /^\s*\d+[.)]\s+/ : /^\s*[-*+]\s+/;
+        const start = ordered ? parseInt(line, 10) : 1;
+        let items = '';
+        while (i < lines.length && (re.test(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && items))) {
+          if (re.test(lines[i])) items += `<li>${inline(lines[i].replace(re, ''))}</li>`;
+          else items = items.replace(/<\/li>$/, '<br>' + inline(lines[i].trim()) + '</li>');
+          i++;
+        }
+        html += ordered ? `<ol${start > 1 ? ` start="${start}"` : ''}>${items}</ol>` : `<ul>${items}</ul>`;
+        continue;
+      }
+      if (/^>\s?/.test(line)) {
+        const buf = [];
+        while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, ''));
+        html += `<blockquote>${inline(buf.join(' '))}</blockquote>`;
+        continue;
+      }
+      if (!line.trim()) { i++; continue; }
+      const buf = [];
+      while (i < lines.length && lines[i].trim() && !BLOCK_START.test(lines[i]) && !(lines[i].includes('|') && isTableSep(lines[i + 1]))) buf.push(lines[i++]);
+      if (!buf.length) { buf.push(lines[i++]); }
+      html += `<p>${inline(buf.join('\n')).replace(/\n/g, '<br>')}</p>`;
+    }
+    return html;
+  }
+  function plain(text) {
+    return text.replace(/```[\s\S]*?```/g, ' (code block) ').replace(/`([^`]+)`/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/^\s*[#>|-]+/gm, ' ').replace(/[*_~|]/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  // ================= sidebar =================
+  function renderSidebar() {
+    const q = $('search').value.trim().toLowerCase();
+    const el = $('chatList'); el.innerHTML = '';
+    const now = new Date(); const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const groups = [['Today', (t) => t >= startToday], ['Yesterday', (t) => t >= startToday - 864e5], ['Last 7 days', (t) => t >= startToday - 6 * 864e5], ['Older', () => true]];
+    const shown = chats.filter((c) => c.messages.length && (!q || c.title.toLowerCase().includes(q) || c.messages.some((m) => (m.text || '').toLowerCase().includes(q))));
+    if (!shown.length) { el.innerHTML = `<div class="group">${q ? 'No matching chats' : 'No chats yet'}</div>`; return; }
+    const used = new Set();
+    for (const [name, test] of groups) {
+      const items = shown.filter((c) => !used.has(c.id) && test(c.updated));
+      if (!items.length) continue;
+      el.insertAdjacentHTML('beforeend', `<div class="group">${name}</div>`);
+      for (const c of items) {
+        used.add(c.id);
+        const row = document.createElement('div');
+        row.className = 'chatItem' + (c.id === currentId ? ' active' : '');
+        row.innerHTML = `<span class="t">${esc(c.title)}</span><span class="acts"><button title="Rename">✎</button><button title="Delete">🗑</button></span>`;
+        row.onclick = () => { openChat(c.id); closeSidebar(); };
+        const [ren, del] = row.querySelectorAll('.acts button');
+        ren.onclick = (e) => { e.stopPropagation(); renameInline(row, c); };
+        del.onclick = (e) => {
+          e.stopPropagation();
+          if (!confirm(`Delete "${c.title}"?`)) return;
+          chats = chats.filter((x) => x.id !== c.id);
+          if (currentId === c.id) currentId = null;
+          saveChats(); renderSidebar(); render();
+        };
+        el.appendChild(row);
+      }
+    }
+  }
+  function renameInline(row, c) {
+    const box = document.createElement('input'); box.type = 'text'; box.value = c.title;
+    row.innerHTML = ''; row.appendChild(box); box.focus(); box.select();
+    const done = (keep) => { if (keep && box.value.trim()) { c.title = box.value.trim().slice(0, 80); saveChats(); } renderSidebar(); };
+    box.onclick = (e) => e.stopPropagation();
+    box.onkeydown = (e) => { if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); };
+    box.onblur = () => done(true);
+  }
+  function openChat(id) {
+    if (controller) controller.abort();
+    stopSpeaking();
+    currentId = id; store.set('nova.current', currentId);
+    renderSidebar(); render(); input.focus();
+  }
+  function newChat() {
+    if (controller) controller.abort();
+    stopSpeaking();
+    currentId = null; store.set('nova.current', null);
+    renderSidebar(); render(); input.focus(); closeSidebar();
+  }
+  const closeSidebar = () => $('sidebar').classList.remove('open');
+
+  // ================= rendering =================
+  const SUGGESTIONS = [
+    ['Explain something', 'How do black holes form? Explain simply.'],
+    ["What's new today", "What's in the news today?"],
+    ['Help me write', 'Help me write a funny bio for my YouTube channel'],
+    ['Code with me', 'Write a Roblox Luau script that gives players a speed boost when they touch a part'],
+    ['Plan something', 'Plan a fun weekend with friends on a small budget'],
+    ['Quiz me', 'Quiz me with 5 questions about world history'],
+  ];
+  function render() {
+    const c = current();
+    list.innerHTML = '';
+    if (!c || !c.messages.length) {
+      list.innerHTML = `<div class="empty"><div class="slogan">Your universe of answers</div><h1>What can I help with?</h1>
+        <div>Ask anything, attach files or images, paste links, or tap the mic and talk.</div>
+        <div class="chips">${SUGGESTIONS.map(([t, p]) => `<button data-p="${esc(p)}"><b>${esc(t)}</b>${esc(p)}</button>`).join('')}</div></div>`;
+      list.querySelectorAll('.chips button').forEach((b) => b.onclick = () => { input.value = b.dataset.p; send(); });
+      return;
+    }
+    c.messages.forEach((m, idx) => list.appendChild(renderMsg(m, idx, c)));
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function renderMsg(m, idx, c) {
+    const el = document.createElement('div');
+    el.className = 'msg ' + (m.role === 'user' ? 'user' : 'bot');
+    if (m.role === 'user') {
+      if (m.images && m.images.length) {
+        const th = document.createElement('div'); th.className = 'thumbs';
+        m.images.forEach((src) => { const im = document.createElement('img'); im.src = src; im.onclick = () => view(src); th.appendChild(im); });
+        el.appendChild(th);
+      }
+      if (m.files && m.files.length) {
+        const fw = document.createElement('div');
+        fw.innerHTML = m.files.map((f) => `<span class="fileTag">📄 ${esc(f.name)}</span>`).join('');
+        el.appendChild(fw);
+      }
+    }
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    el.appendChild(bubble);
+    if (m.role === 'user' && !m.text) bubble.style.display = 'none';
+    fill(bubble, m);
+
+    if (!m.streaming) {
+      const tools = document.createElement('div'); tools.className = 'tools';
+      const add = (label, fn, title) => { const b = document.createElement('button'); b.textContent = label; if (title) b.title = title; b.onclick = () => fn(b); tools.appendChild(b); return b; };
+      if (m.role === 'user') {
+        if (m.text) add('Copy', (b) => { copyText(m.text); flash(b); });
+        add('Edit', () => startEdit(el, bubble, m, idx));
+      } else {
+        if (m.text) {
+          add('Copy', (b) => { copyText(m.text); flash(b); });
+          add(speakingIdx === idx ? '■ Stop' : '🔊 Read aloud', (b) => toggleSpeak(m, idx, b));
+        }
+        if (idx === c.messages.length - 1) add('↻ Try again', () => { c.messages.pop(); ask(); });
+      }
+      el.appendChild(tools);
+    }
+    return el;
+  }
+  function flash(b) { const t = b.textContent; b.textContent = 'Copied!'; setTimeout(() => b.textContent = t, 1200); }
+
+  function fill(bubble, m) {
+    if (m.role === 'user') { bubble.textContent = m.text; return; }
+    let html;
+    if (m.error) html = `<p class="error">${esc(m.error)}</p>`;
+    else if (m.streaming && !m.text) html = `<p class="thinking">${m.thinking ? 'Thinking…' : m.reading ? 'Reading your links…' : '…'}</p>`;
+    else html = md(m.text || '');
+    bubble.innerHTML = html;
+    if (m.streaming && m.text) (bubble.lastElementChild || bubble).classList.add('cursor');
+    if (m.note) bubble.insertAdjacentHTML('beforeend', `<div class="note">${esc(m.note)}</div>`);
+    if (m.sources && m.sources.length) {
+      bubble.insertAdjacentHTML('beforeend', '<div class="sources">Sources: ' +
+        m.sources.map((s) => `<a href="${esc(s.uri)}" target="_blank" rel="noopener" title="${esc(s.uri)}">${esc(s.title || s.uri)}</a>`).join('') + '</div>');
+    }
+    bubble.querySelectorAll('.copyCode').forEach((b) => b.onclick = () => {
+      copyText(b.closest('.codeBox').querySelector('code').textContent); flash(b);
+    });
+  }
+
+  function startEdit(el, bubble, m, idx) {
+    if (controller) return;
+    const box = document.createElement('div'); box.className = 'editBox';
+    box.innerHTML = `<textarea class="field"></textarea><div class="row"><button class="cancel">Cancel</button><button class="save" style="background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;color:#fff">Send</button></div>`;
+    const ta = box.querySelector('textarea'); ta.value = m.text;
+    el.querySelector('.tools').style.display = 'none';
+    bubble.replaceWith(box); ta.focus();
+    box.querySelector('.cancel').onclick = render;
+    box.querySelector('.save').onclick = () => {
+      const c = current(); const text = ta.value.trim();
+      if (!text && !(m.images && m.images.length)) return;
+      c.messages = c.messages.slice(0, idx);
+      c.messages.push({ ...m, text });
+      ask();
+    };
+    ta.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); box.querySelector('.save').click(); } if (e.key === 'Escape') render(); };
+  }
+
+  function view(src) { $('viewer').querySelector('img').src = src; $('viewer').classList.add('show'); }
+  $('viewer').onclick = () => $('viewer').classList.remove('show');
+
+  // ================= attachments =================
+  const TEXT_EXT = /\.(txt|md|csv|tsv|json|js|mjs|ts|jsx|tsx|py|java|c|cpp|h|hpp|cs|go|rs|rb|php|html?|css|scss|xml|ya?ml|sql|sh|bat|ps1|lua|luau|ini|toml|log|srt|vtt)$/i;
+  const MAX_FILE_CHARS = 40000;
+
+  async function addFiles(files) {
+    for (const f of files) {
+      if (f.size > 15 * 1024 * 1024) { toast(`${f.name} is too big (15 MB max)`); continue; }
+      if (f.type.startsWith('image/')) {
+        if (pending.filter((p) => p.kind === 'image').length >= 4) { toast('Up to 4 images per message'); continue; }
+        try { pending.push({ kind: 'image', data: await resizeImage(f) }); } catch { toast(`Couldn't open ${f.name}`); }
+      } else {
+        const tag = { kind: 'file', name: f.name, text: null };
+        pending.push(tag); renderPending();
+        try {
+          let text;
+          if (/\.pdf$/i.test(f.name) || f.type === 'application/pdf') text = await readPdf(f);
+          else if (/\.docx$/i.test(f.name)) text = await readDocx(f);
+          else if (TEXT_EXT.test(f.name) || f.type.startsWith('text/')) text = await f.text();
+          else throw new Error('unsupported');
+          text = text.trim();
+          if (!text) throw new Error('empty');
+          if (text.length > MAX_FILE_CHARS) text = text.slice(0, MAX_FILE_CHARS) + '\n[...file was cut off because it is very long]';
+          tag.text = text;
+        } catch (e) {
+          pending = pending.filter((p) => p !== tag);
+          toast(e.message === 'unsupported' ? `Nova can't read ${f.name} (try PDF, Word, text or code files)` : e.message === 'empty' ? `${f.name} has no readable text (it might be a scan)` : `Couldn't read ${f.name}`);
+        }
+      }
+      renderPending();
+    }
+  }
+
+  function renderPending() {
+    const el = $('pending'); el.innerHTML = '';
+    pending.forEach((p) => {
+      const d = document.createElement('div'); d.className = 'pend';
+      d.innerHTML = p.kind === 'image' ? `<img src="${p.data}" alt="">` : `📄 <span>${esc(p.name)}${p.text === null ? ' (reading…)' : ''}</span>`;
+      const x = document.createElement('button'); x.textContent = '✕'; x.title = 'Remove';
+      x.onclick = () => { pending = pending.filter((q) => q !== p); renderPending(); };
+      d.appendChild(x); el.appendChild(d);
+    });
+  }
+
+  function resizeImage(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const max = 1280; let { width: w, height: h } = img;
+        if (w > max || h > max) { const s = max / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(cv.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
+      img.src = url;
+    });
+  }
+
+  let pdfjs = null;
+  async function readPdf(file) {
+    if (!pdfjs) {
+      pdfjs = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs');
+      pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
+    }
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    let out = '';
+    for (let n = 1; n <= Math.min(doc.numPages, 80) && out.length < MAX_FILE_CHARS; n++) {
+      const page = await doc.getPage(n);
+      const tc = await page.getTextContent();
+      out += `\n[Page ${n}]\n` + tc.items.map((it) => it.str + (it.hasEOL ? '\n' : ' ')).join('');
+    }
+    return out;
+  }
+
+  // Word files are zip archives; this pulls word/document.xml out without any library.
+  async function readDocx(file) {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const dv = new DataView(buf.buffer);
+    let eocd = -1;
+    for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error('bad docx');
+    const count = dv.getUint16(eocd + 10, true);
+    let p = dv.getUint32(eocd + 16, true);
+    for (let n = 0; n < count; n++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+      const nameLen = dv.getUint16(p + 28, true), extraLen = dv.getUint16(p + 30, true), commentLen = dv.getUint16(p + 32, true);
+      const local = dv.getUint32(p + 42, true);
+      const name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nameLen));
+      if (name === 'word/document.xml') {
+        const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
+        const data = buf.subarray(start, start + csize);
+        const xml = method === 0 ? new TextDecoder().decode(data)
+          : await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+        const txt = document.createElement('textarea');
+        txt.innerHTML = xml.replace(/<w:tab\/>/g, '\t').replace(/<w:br[^>]*\/>/g, '\n').replace(/<\/w:p>/g, '\n').replace(/<[^>]+>/g, '');
+        return txt.value;
+      }
+      p += 46 + nameLen + extraLen + commentLen;
+    }
+    throw new Error('bad docx');
+  }
+
+  // ================= sending =================
+  function composeText(m) {
+    let t = m.text || '';
+    for (const f of m.files || []) t += `\n\n[Attached file: ${f.name}]\n\`\`\`\n${f.text}\n\`\`\``;
+    return t;
+  }
+
+  function send() {
+    if (controller) return;
+    if (pending.some((p) => p.kind === 'file' && p.text === null)) { toast('Still reading your file…'); return; }
+    const text = input.value.trim();
+    const images = pending.filter((p) => p.kind === 'image').map((p) => p.data);
+    const files = pending.filter((p) => p.kind === 'file').map(({ name, text }) => ({ name, text }));
+    if (!text && !images.length && !files.length) return;
+    let c = current();
+    if (!c) { c = { id: uid(), title: titleFrom(text || (files[0] && files[0].name) || 'Image'), updated: Date.now(), messages: [] }; chats.push(c); currentId = c.id; }
+    const msg = { role: 'user', text };
+    if (images.length) msg.images = images;
+    if (files.length) msg.files = files;
+    c.messages.push(msg);
+    input.value = ''; pending = []; renderPending(); autosize();
+    ask();
+  }
+
+  async function ask() {
+    const c = current();
+    const bot = { role: 'bot', text: '', streaming: true, sources: [] };
+    const lastUser = c.messages[c.messages.length - 1];
+    bot.reading = /https?:\/\//.test(lastUser.text || '');
+    c.messages.push(bot);
+    c.updated = Date.now();
+    saveChats(); renderSidebar(); render();
+    const bubble = list.lastElementChild.querySelector('.bubble');
+    sendBtn.textContent = 'Stop';
+    controller = new AbortController();
+
+    const msgs = c.messages.filter((m) => m !== bot && !m.error);
+    const history = msgs.map((m, i) => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      text: m.role === 'user' ? composeText(m) : m.text,
+      images: m.role === 'user' && i === msgs.length - 1 ? m.images || [] : undefined,
+    }));
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: history, password, visitor,
+          web: serverInfo.web && settings.web,
+          model: settings.model,
+          instructions: settings.instructions,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        let data = {}; try { data = await res.json(); } catch {}
+        if (data.needPassword) {
+          c.messages.pop(); const u = c.messages.pop();
+          if (u) { input.value = u.text || ''; pending = [...(u.images || []).map((d) => ({ kind: 'image', data: d })), ...(u.files || []).map((f) => ({ kind: 'file', ...f }))]; renderPending(); }
+          if (!c.messages.length) { chats = chats.filter((x) => x !== c); currentId = null; }
+          showPassword(); return;
+        }
+        throw new Error(data.error || (res.status === 413 ? 'Those attachments are too big. Try fewer or smaller images.' : `Error ${res.status}`));
+      }
+      const left = res.headers.get('X-Limit-Remaining');
+      if (left !== null && +left <= 5) bot.limitNote = +left === 0 ? "That was your last message for now. You'll get more soon." : `${left} message${+left === 1 ? '' : 's'} left for now.`;
+      if (res.headers.get('X-Web-Fallback') === '1') bot.note = "Web search wasn't available for this one, so this answer is from Nova's own knowledge.";
+      try { for (const l of JSON.parse(decodeURIComponent(res.headers.get('X-Read-Links') || '[]'))) bot.sources.push(l); } catch {}
+      bot.reading = false;
+
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue;
+          let chunk; try { chunk = JSON.parse(line.slice(5)); } catch { continue; }
+          if (chunk.error) { bot.error = chunk.error.message || 'The AI stopped with an error.'; continue; }
+          if (chunk.choices) { // Groq / OpenAI format
+            const d = chunk.choices[0] && chunk.choices[0].delta;
+            if (d && d.content) bot.text += d.content;
+            else if (d && d.reasoning) bot.thinking = true;
+            continue;
+          }
+          const cand = chunk.candidates && chunk.candidates[0]; // Gemini format
+          if (!cand) continue;
+          for (const p of (cand.content && cand.content.parts) || []) {
+            if (p.text && !p.thought) bot.text += p.text;
+            else if (p.thought) bot.thinking = true;
+          }
+          const gc = cand.groundingMetadata && cand.groundingMetadata.groundingChunks;
+          if (gc) for (const g of gc) if (g.web && g.web.uri && !bot.sources.some((s) => s.uri === g.web.uri)) bot.sources.push({ uri: g.web.uri, title: g.web.title });
+        }
+        fill(bubble, bot);
+        if (chat.scrollHeight - chat.scrollTop - chat.clientHeight < 200) chat.scrollTop = chat.scrollHeight;
+      }
+      if (!bot.text && !bot.error) bot.error = 'No answer came back. Try rephrasing or hit Try again.';
+    } catch (e) {
+      if (e.name === 'AbortError') { if (!bot.text) bot.text = '_(stopped)_'; }
+      else bot.error = e.message === 'Failed to fetch' ? "Couldn't reach Nova's server. Check your internet." : e.message || 'Something went wrong.';
+    } finally {
+      delete bot.streaming; delete bot.thinking; delete bot.reading;
+      if (bot.limitNote) { bot.note = bot.note ? bot.note + ' ' + bot.limitNote : bot.limitNote; delete bot.limitNote; }
+      if (bot.text && bot.error) delete bot.error;
+      controller = null;
+      sendBtn.textContent = 'Send';
+      if (current() === c) { c.updated = Date.now(); }
+      saveChats(); renderSidebar(); render();
+    }
+  }
+
+  // ================= voice =================
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null;
+  if (!SR) $('mic').style.display = 'none';
+  $('mic').onclick = () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.continuous = true;
+    const base = input.value ? input.value.replace(/\s*$/, ' ') : '';
+    rec.onresult = (e) => {
+      let t = ''; for (const r of e.results) t += r[0].transcript;
+      input.value = base + t; autosize();
+    };
+    rec.onerror = (e) => { if (e.error === 'not-allowed') toast('Allow microphone access to use voice'); };
+    rec.onend = () => { rec = null; $('mic').classList.remove('on'); input.focus(); };
+    try { rec.start(); $('mic').classList.add('on'); } catch { rec = null; }
+  };
+
+  let speakingIdx = -1;
+  function stopSpeaking() { try { speechSynthesis.cancel(); } catch {} speakingIdx = -1; }
+  function toggleSpeak(m, idx, btn) {
+    if (!('speechSynthesis' in window)) { toast("This browser can't read aloud"); return; }
+    if (speakingIdx === idx) { stopSpeaking(); btn.textContent = '🔊 Read aloud'; return; }
+    stopSpeaking();
+    const u = new SpeechSynthesisUtterance(plain(m.text));
+    const v = speechSynthesis.getVoices().find((x) => x.name === settings.voice);
+    if (v) u.voice = v;
+    u.onend = () => { if (speakingIdx === idx) { speakingIdx = -1; btn.textContent = '🔊 Read aloud'; } };
+    speakingIdx = idx; btn.textContent = '■ Stop';
+    speechSynthesis.speak(u);
+  }
+  function loadVoices() {
+    if (!('speechSynthesis' in window)) return;
+    const sel = $('voice'); const voices = speechSynthesis.getVoices();
+    sel.innerHTML = '<option value="">Default</option>' + voices.map((v) => `<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.lang)})</option>`).join('');
+    sel.value = settings.voice;
+  }
+  if ('speechSynthesis' in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+
+  // ================= settings, theme, export =================
+  function applyTheme() {
+    const t = settings.theme === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : settings.theme;
+    document.documentElement.dataset.theme = t;
+  }
+  matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', applyTheme);
+  $('settingsBtn').onclick = () => {
+    $('instructions').value = settings.instructions; $('theme').value = settings.theme; $('voice').value = settings.voice;
+    $('settings').classList.add('show'); closeSidebar();
+  };
+  $('settingsClose').onclick = () => {
+    settings.instructions = $('instructions').value.trim(); settings.voice = $('voice').value;
+    saveSettings(); $('settings').classList.remove('show');
+  };
+  $('theme').onchange = () => { settings.theme = $('theme').value; applyTheme(); saveSettings(); };
+  $('settings').onclick = (e) => { if (e.target.id === 'settings') $('settingsClose').click(); };
+  $('clearAll').onclick = () => {
+    if (!confirm('Delete ALL chats? This cannot be undone.')) return;
+    chats = []; currentId = null; saveChats(); renderSidebar(); render(); $('settingsClose').click(); toast('All chats deleted');
+  };
+  $('exportBtn').onclick = () => {
+    const c = current(); if (!c || !c.messages.length) { toast('Nothing to download yet'); return; }
+    let out = `# ${c.title}\n\n`;
+    for (const m of c.messages) {
+      out += m.role === 'user' ? `## You\n\n${composeText(m)}${m.images ? `\n\n(${m.images.length} image(s) attached)` : ''}\n\n` : `## Nova\n\n${m.text || m.error || ''}\n\n`;
+      if (m.sources && m.sources.length) out += 'Sources:\n' + m.sources.map((s) => `- [${s.title || s.uri}](${s.uri})`).join('\n') + '\n\n';
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([out], { type: 'text/markdown' }));
+    a.download = (c.title.replace(/[^\w\- ]+/g, '').trim().slice(0, 50) || 'chat') + '.md';
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+
+  // ================= password =================
+  function showPassword() { $('pwBox').classList.add('show'); $('pwInput').value = ''; $('pwInput').focus(); renderSidebar(); render(); }
+  $('pwSave').onclick = () => { password = $('pwInput').value; store.set('nova.password', password); $('pwBox').classList.remove('show'); input.focus(); };
+  $('pwInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('pwSave').click(); });
+
+  // ================= wiring =================
+  function autosize() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 240) + 'px'; }
+  input.addEventListener('input', autosize);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !matchMedia('(max-width: 820px)').matches) { e.preventDefault(); send(); }
+  });
+  input.addEventListener('paste', (e) => {
+    const files = [...(e.clipboardData && e.clipboardData.files || [])];
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  });
+  sendBtn.onclick = () => controller ? controller.abort() : send();
+  $('attachBtn').onclick = () => $('fileInput').click();
+  $('fileInput').onchange = (e) => { addFiles([...e.target.files]); e.target.value = ''; };
+  $('newChat').onclick = newChat;
+  $('search').oninput = renderSidebar;
+  $('menuBtn').onclick = () => $('sidebar').classList.add('open');
+  $('scrim').onclick = closeSidebar;
+  $('model').value = settings.model;
+  $('model').onchange = () => { settings.model = $('model').value; saveSettings(); };
+  $('web').checked = settings.web;
+  $('web').onchange = () => { settings.web = $('web').checked; saveSettings(); };
+
+  let dragDepth = 0;
+  const main = $('main');
+  main.addEventListener('dragenter', (e) => { if ([...e.dataTransfer.types].includes('Files')) { dragDepth++; $('dropZone').style.display = 'flex'; } });
+  main.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('dropZone').style.display = 'none'; } });
+  main.addEventListener('dragover', (e) => e.preventDefault());
+  main.addEventListener('drop', (e) => { e.preventDefault(); dragDepth = 0; $('dropZone').style.display = 'none'; addFiles([...e.dataTransfer.files]); });
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); newChat(); }
+    if (e.key === 'Escape') { $('viewer').classList.remove('show'); }
+  });
+
+  // Ask the server which features are turned on.
+  fetch('/api/chat').then((r) => r.json()).then((d) => {
+    serverInfo = d;
+    if (!d.web) $('webWrap').style.display = 'none';
+    if (d.locked && !password) showPassword();
+  }).catch(() => {});
+
+  applyTheme();
+  if (currentId && !current()) currentId = null;
+  renderSidebar();
+  render();
+  input.focus();
+})();
+</script>
+</body>
+</html>
