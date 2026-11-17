@@ -8,7 +8,7 @@ Your own ChatGPT-style AI site that anyone can use with no sign-up. It runs on a
 - **Images**: attach, paste or drag in up to 4 images and ask about them (homework photos, screenshots, memes)
 - **Files**: PDF, Word (.docx), text, CSV and code files. Nova reads them and answers about them
 - **Links**: paste up to 3 links and Nova opens the pages and answers from them (shown under Sources)
-- **Web search**: uses Groq's built-in search when your free plan allows it
+- **Web search**: Nova searches the web itself (DuckDuckGo, then Wikipedia), opens the top results and answers from them, with sources. Add a free `TAVILY_API_KEY` for the most reliable results. This works on Groq's free plan and uses far less of its limit than Groq's own search tool did
 - **Voice**: tap 🎤 to talk instead of typing; 🔊 reads answers aloud (pick the voice in Settings)
 - **Edit & retry**: edit any message you sent, or hit Try again for a new answer
 - **Custom instructions**: tell Nova about yourself or how to reply (Settings)
@@ -63,6 +63,8 @@ If you change an environment variable later, redeploy so the change takes effect
 | `MISTRAL_MODEL` | Mistral model | `mistral-small-latest` |
 | `SITE_PASSWORD` | only if you want to make it private again | none |
 | `GEMINI_MODEL` | which Gemini model | `gemini-3.6-flash` |
+| `TAVILY_API_KEY` | optional, free key from https://tavily.com for better web search | none |
+| `GROQ_BROWSER_SEARCH` | set to `1` to use Groq's own search tool too (uses the free limit up much faster) | off |
 | `PROVIDERS` | order to try providers in, e.g. `groq,gemini,openrouter,mistral` | that order |
 
 ## Troubleshooting
@@ -72,7 +74,8 @@ If you change an environment variable later, redeploy so the change takes effect
 - **Images don't work**: the vision model may have been retired. Set `GROQ_VISION_MODEL` to a current Groq model that supports images.
 - **PDFs won't read**: the PDF reader loads from the jsDelivr CDN, so that site has to be reachable. Scanned PDFs (photos of pages) have no text, so screenshot them and attach as images instead.
 - **"Couldn't read the link"**: some sites block bots, need a login, or only load with JavaScript (Instagram, TikTok, Google Docs, many school sites). Paste the text in instead.
-- **"Web search wasn't available"**: Groq didn't allow its search tool on your plan, or you attached an image (the image model can't search). Nova still answers.
+- **"Nova's free AI is maxed out for the moment"**: Groq's free plan allows only so many words per minute and per day for the whole site. Nova switches from Smart to Fast automatically when Smart is maxed out. Wait a minute, or add another provider key (like OpenRouter) for more capacity.
+- **"Web search wasn't available"**: the search sites didn't answer that time. Add a free `TAVILY_API_KEY` to make search more reliable.
 - **Mic button missing**: voice typing works in Chrome and Edge, not Firefox.
 
 ## Changing it
