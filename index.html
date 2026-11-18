@@ -69,6 +69,19 @@
   #main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
   header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
   #menuBtn { display: none; }
+  #level { max-width: 150px; }
+  header select { min-width: 0; }
+  .credits { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; position: relative; padding: 5px 12px 7px; border-radius: 999px; font-size: 14px; color: var(--accent); background: var(--panel2); overflow: hidden; }
+  .credits svg { flex-shrink: 0; }
+  .webShort { display: none; }
+  .credits b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .credits .credOf, .credits .credWord { color: var(--muted); }
+  .credits .credBar { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 2px; border-radius: 2px; background: var(--line); }
+  .credits .credBar span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--accent); transition: width .4s ease; }
+  .credits.low { color: #f0a020; } .credits.low .credBar span { background: #f0a020; }
+  .credits.empty { color: var(--danger); } .credits.empty .credBar span { background: var(--danger); }
+  .credits.pop { animation: credPop .35s ease; }
+  @keyframes credPop { 50% { transform: scale(1.08); } }
   .spacer { flex: 1; }
   .toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; cursor: pointer; user-select: none; }
   .toggle input { accent-color: var(--accent); }
@@ -197,6 +210,14 @@
     #sidebar.open { transform: none; }
     #sidebar.open + #scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 14; }
     #menuBtn { display: inline-block; }
+    header { gap: 6px; padding: 8px 10px; }
+    .webLabel, .credWord { display: none; }
+    .webShort { display: inline; }
+    #exportBtn { display: none; }
+    .toggle { gap: 3px; }
+    .credits { padding: 5px 9px 7px; gap: 4px; }
+    #model, #level { font-size: 14px; padding: 5px 6px; }
+    #level { max-width: 118px; }
     .chips { grid-template-columns: 1fr 1fr; }
     .msg.user .tools { opacity: 1; }
     .hint { display: none; }
@@ -353,10 +374,26 @@
       <option value="smart">Smart</option>
       <option value="fast">Fast</option>
     </select>
+    <select id="level" title="Answer level: how simply Nova explains things">
+      <option value="">Grade: any</option>
+      <option value="k2">Grades K–2</option>
+      <option value="g3_5">Grades 3–5</option>
+      <option value="g6_8">Grades 6–8</option>
+      <option value="g9_10">Grades 9–10</option>
+      <option value="g11_12">Grades 11–12</option>
+      <option value="college">College</option>
+      <option value="expert">Expert</option>
+    </select>
     <label class="toggle" id="webWrap" title="Lets Nova search the web for current info">
-      <input type="checkbox" id="web" checked /> Web search
+      <input type="checkbox" id="web" checked /> <span class="webLabel">Web search</span><svg class="webShort" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18" fill="none" stroke="currentColor" stroke-width="2"></path></svg>
     </label>
     <span class="spacer"></span>
+    <button id="credits" class="credits" type="button" title="Free credits left today. 1 message = 1 credit." hidden>
+      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor"></path></svg>
+      <span><b id="credNum">–</b><span class="credOf">/<span id="credTotal">–</span></span></span>
+      <span class="credWord">credits</span>
+      <span class="credBar"><span id="credFill"></span></span>
+    </button>
     <button id="exportBtn" class="icon ghost" title="Download this chat">⤓</button>
   </header>
 
@@ -425,7 +462,8 @@
     if (old.length) chats.push({ id: uid(), title: titleFrom(old[0].text), updated: Date.now(), messages: old });
   }
   let currentId = store.get('nova.current', null);
-  let settings = Object.assign({ instructions: '', theme: 'dark', model: 'smart', web: true, voice: '' }, store.get('nova.settings', {}));
+  let settings = Object.assign({ instructions: '', theme: 'dark', model: 'smart', web: true, voice: '', level: '' }, store.get('nova.settings', {}));
+  let credits = { total: null, remaining: null, resetIn: null };
   let password = store.get('nova.password', '');
   // A random id for this browser, used only for the fair-use message limit.
   let visitor = store.get('nova.visitor', '');
@@ -801,6 +839,7 @@
 
   function send() {
     if (controller) return;
+    if (credits.remaining === 0) { toast(`You're out of credits for today. They refill ${resetPhrase()}.`); return; }
     if (pending.some((p) => p.kind === 'file' && p.text === null)) { toast('Still reading your file…'); return; }
     const text = input.value.trim();
     const images = pending.filter((p) => p.kind === 'image').map((p) => p.data);
@@ -844,12 +883,14 @@
           web: serverInfo.web && settings.web,
           model: settings.model,
           instructions: settings.instructions,
+          level: settings.level,
         }),
         signal: controller.signal,
       });
 
       if (!res.ok) {
         let data = {}; try { data = await res.json(); } catch {}
+        if (data.credits) updateCredits(data.credits);
         if (data.needPassword) {
           c.messages.pop(); const u = c.messages.pop();
           if (u) { input.value = u.text || ''; pending = [...(u.images || []).map((d) => ({ kind: 'image', data: d })), ...(u.files || []).map((f) => ({ kind: 'file', ...f }))]; renderPending(); }
@@ -858,8 +899,11 @@
         }
         throw new Error(data.error || (res.status === 413 ? 'Those attachments are too big. Try fewer or smaller images.' : `Error ${res.status}`));
       }
-      const left = res.headers.get('X-Limit-Remaining');
-      if (left !== null && +left <= 5) bot.limitNote = +left === 0 ? "That was your last message for now. You'll get more soon." : `${left} message${+left === 1 ? '' : 's'} left for now.`;
+      const left = res.headers.get('X-Credits-Remaining');
+      if (left !== null) {
+        updateCredits({ remaining: +left, total: +res.headers.get('X-Credits-Total') || credits.total }, true);
+        if (+left <= 3) bot.limitNote = +left === 0 ? "That was your last free credit for today. Credits refill at midnight." : `${left} credit${+left === 1 ? '' : 's'} left today.`;
+      }
       if (res.headers.get('X-Web-Fallback') === '1') bot.note = "Web search wasn't available for this one, so this answer is from Nova's own knowledge.";
       try { for (const l of JSON.parse(decodeURIComponent(res.headers.get('X-Read-Links') || '[]'))) bot.sources.push(l); } catch {}
       bot.reading = false;
@@ -1005,6 +1049,41 @@
   $('scrim').onclick = closeSidebar;
   $('model').value = settings.model;
   $('model').onchange = () => { settings.model = $('model').value; saveSettings(); };
+  $('level').value = settings.level || '';
+  $('level').onchange = () => { settings.level = $('level').value; saveSettings(); toast($('level').value ? `Nova will explain things for ${$('level').selectedOptions[0].text}` : 'Nova will answer at a normal level'); };
+
+  function resetPhrase() {
+    const s = credits.resetIn;
+    if (!s) return 'at midnight';
+    const h = Math.floor(s / 3600), m = Math.ceil((s % 3600) / 60);
+    return `in ${h ? h + ' hr ' : ''}${m} min (at midnight)`;
+  }
+  function updateCredits(c, spent) {
+    if (c.total) credits.total = c.total;
+    if (c.remaining !== undefined && c.remaining !== null) credits.remaining = c.remaining;
+    if (c.resetIn) { credits.resetIn = c.resetIn; credits.resetAt = Date.now() + c.resetIn * 1000; }
+    if (credits.total == null || credits.remaining == null) return;
+    const el = $('credits');
+    el.hidden = false;
+    $('credNum').textContent = credits.remaining;
+    $('credTotal').textContent = credits.total;
+    $('credFill').style.width = Math.max(0, Math.min(100, (credits.remaining / credits.total) * 100)) + '%';
+    el.classList.toggle('low', credits.remaining > 0 && credits.remaining <= Math.max(3, Math.round(credits.total * 0.2)));
+    el.classList.toggle('empty', credits.remaining === 0);
+    el.title = `${credits.remaining} of ${credits.total} free credits left today. 1 message = 1 credit. Refills at midnight.`;
+    input.placeholder = credits.remaining === 0 ? 'Out of credits for today, back at midnight' : 'Message Nova…';
+    if (spent) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+  }
+  // Keep the countdown roughly right without asking the server again.
+  setInterval(() => { if (credits.resetAt) credits.resetIn = Math.max(0, Math.round((credits.resetAt - Date.now()) / 1000)); if (credits.resetAt && Date.now() > credits.resetAt) refreshCredits(); }, 30000);
+  function refreshCredits() {
+    fetch('/api/chat?visitor=' + encodeURIComponent(visitor)).then((r) => r.json()).then((d) => { if (d.credits) updateCredits(d.credits); }).catch(() => {});
+  }
+  $('credits').onclick = () => {
+    if (credits.remaining == null) return;
+    toast(`${credits.remaining} of ${credits.total} free credits left. Each message uses 1. They refill ${resetPhrase()}.`);
+  };
+
   $('web').checked = settings.web;
   $('web').onchange = () => { settings.web = $('web').checked; saveSettings(); };
 
@@ -1021,8 +1100,9 @@
   });
 
   // Ask the server which features are turned on.
-  fetch('/api/chat').then((r) => r.json()).then((d) => {
+  fetch('/api/chat?visitor=' + encodeURIComponent(visitor)).then((r) => r.json()).then((d) => {
     serverInfo = d;
+    if (d.credits) updateCredits(d.credits);
     if (!d.web) $('webWrap').style.display = 'none';
     if (d.locked && !password) showPassword();
   }).catch(() => {});

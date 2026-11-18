@@ -4,11 +4,13 @@ Your own ChatGPT-style AI site that anyone can use with no sign-up. It runs on a
 
 ## Features
 - **Chat history**: saved chats in a sidebar, with search, rename and delete
+- **Answer level by grade**: pick Grades K–2 up to College or Expert, and Nova explains things at that level
+- **Credit counter**: shows how many free messages are left today
 - **Smart / Fast models**: Smart (GPT-OSS 120B) for best answers, Fast (GPT-OSS 20B) for quick ones
 - **Images**: attach, paste or drag in up to 4 images and ask about them (homework photos, screenshots, memes)
 - **Files**: PDF, Word (.docx), text, CSV and code files. Nova reads them and answers about them
 - **Links**: paste up to 3 links and Nova opens the pages and answers from them (shown under Sources)
-- **Web search**: Nova searches the web itself (DuckDuckGo, then Wikipedia), opens the top results and answers from them, with sources. Add a free `TAVILY_API_KEY` for the most reliable results. This works on Groq's free plan and uses far less of its limit than Groq's own search tool did
+- **Web search**: uses Groq's built-in search when your free plan allows it
 - **Voice**: tap 🎤 to talk instead of typing; 🔊 reads answers aloud (pick the voice in Settings)
 - **Edit & retry**: edit any message you sent, or hit Try again for a new answer
 - **Custom instructions**: tell Nova about yourself or how to reply (Settings)
@@ -19,7 +21,7 @@ Chats are saved in each visitor's own browser, not on the server. Free AI provid
 
 ## Setup (about 15 minutes)
 
-Nova is set up as a **public site**: anyone with the link can chat, no password or sign-up. Each visitor gets a fair-use limit (30 messages an hour, 150 a day by default) so nobody can use up the free AI for everyone else.
+Nova is set up as a **public site**: anyone with the link can chat, no password or sign-up. Each visitor gets **25 free credits a day** (1 message = 1 credit), shown in a counter at the top. Credits refill at midnight New York time, and a message that fails doesn't use a credit. 25 credits is sized so about 25 people a day fit inside the free AI limits.
 
 ### 1. Get free API keys (more keys = more people it can handle)
 | Provider | Where | Needed? |
@@ -56,26 +58,23 @@ If you change an environment variable later, redeploy so the change takes effect
 | `GROQ_FAST_MODEL` | model for **Fast** | `openai/gpt-oss-20b` |
 | `GROQ_VISION_MODEL` | model used when you attach images | `meta-llama/llama-4-scout-17b-16e-instruct` |
 | `MAX_CONTEXT_CHARS` | how much chat history and file text is sent each time (smaller = more people served) | `16000` |
-| `RATE_LIMIT_PER_HOUR` | messages each visitor can send per hour | `30` |
-| `RATE_LIMIT_PER_DAY` | messages each visitor can send per day | `150` |
-| `RATE_LIMIT_IP_PER_HOUR` | messages per hour from one network, like a whole school (backstop) | `400` |
+| `CREDITS_PER_DAY` | free credits (messages) each visitor gets per day | `25` |
+| `RATE_LIMIT_PER_MINUTE` | spam guard: messages per minute per visitor | `5` |
+| `RATE_LIMIT_IP_PER_DAY` | messages per day from one network, like a whole school (backstop) | `800` |
 | `OPENROUTER_MODEL` | OpenRouter model | `openrouter/free` (picks a free model automatically) |
 | `MISTRAL_MODEL` | Mistral model | `mistral-small-latest` |
 | `SITE_PASSWORD` | only if you want to make it private again | none |
 | `GEMINI_MODEL` | which Gemini model | `gemini-3.6-flash` |
-| `TAVILY_API_KEY` | optional, free key from https://tavily.com for better web search | none |
-| `GROQ_BROWSER_SEARCH` | set to `1` to use Groq's own search tool too (uses the free limit up much faster) | off |
 | `PROVIDERS` | order to try providers in, e.g. `groq,gemini,openrouter,mistral` | that order |
 
 ## Troubleshooting
 - **"Nova is really busy right now"**: every free provider is maxed out at that moment. Add more provider keys, lower `MAX_CONTEXT_CHARS`, or lower the per-visitor limits.
-- **"You've reached the limit of 30 messages per hour"**: that's the fair-use limit working. Change it with `RATE_LIMIT_PER_HOUR`.
+- **"You've used all 25 of today's free credits"**: that's the credit limit working. Change it with `CREDITS_PER_DAY` (lower it if Nova is often busy, raise it if it never is).
 - **"That AI model isn't available anymore"**: Groq retires models sometimes. Pick a current one at https://console.groq.com/docs/models and set the matching variable above.
 - **Images don't work**: the vision model may have been retired. Set `GROQ_VISION_MODEL` to a current Groq model that supports images.
 - **PDFs won't read**: the PDF reader loads from the jsDelivr CDN, so that site has to be reachable. Scanned PDFs (photos of pages) have no text, so screenshot them and attach as images instead.
 - **"Couldn't read the link"**: some sites block bots, need a login, or only load with JavaScript (Instagram, TikTok, Google Docs, many school sites). Paste the text in instead.
-- **"Nova's free AI is maxed out for the moment"**: Groq's free plan allows only so many words per minute and per day for the whole site. Nova switches from Smart to Fast automatically when Smart is maxed out. Wait a minute, or add another provider key (like OpenRouter) for more capacity.
-- **"Web search wasn't available"**: the search sites didn't answer that time. Add a free `TAVILY_API_KEY` to make search more reliable.
+- **"Web search wasn't available"**: Groq didn't allow its search tool on your plan, or you attached an image (the image model can't search). Nova still answers.
 - **Mic button missing**: voice typing works in Chrome and Edge, not Firefox.
 
 ## Changing it

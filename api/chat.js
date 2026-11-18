@@ -6,9 +6,10 @@
 //   GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, MISTRAL_API_KEY
 // PROVIDERS (optional) sets the order, e.g. "groq,gemini,openrouter,mistral".
 //
-// Fair-use limit: each visitor gets RATE_LIMIT_PER_HOUR messages an hour and
-// RATE_LIMIT_PER_DAY a day (defaults 30 and 150). Counts are kept in a free
-// Upstash Redis database connected through Vercel (see README).
+// Credits: each visitor gets CREDITS_PER_DAY free messages (default 25, sized so
+// about 25 people a day fit in the free AI limits). Credits reset at midnight
+// New York time. A message only uses a credit if Nova actually answers.
+// Counts are kept in a free Upstash Redis database connected through Vercel.
 
 export const config = { runtime: 'edge' };
 
@@ -24,7 +25,18 @@ const GROQ_MODELS = {
 const MAX_CONTEXT_CHARS = () => +process.env.MAX_CONTEXT_CHARS || 16000;
 const MAX_IMAGES = 4;
 
-function systemPrompt(instructions) {
+// Answer levels people can pick in the page, so explanations match how they read.
+const LEVELS = {
+  k2: 'a student in grades K-2 (ages 5-8). Use very short sentences and simple everyday words, compare things to stuff kids know (toys, animals, food, games), and avoid jargon completely. Keep it to a few sentences unless they ask for more.',
+  g3_5: 'a student in grades 3-5 (ages 8-11). Use short sentences and simple words, explain any harder word in parentheses, and use relatable examples.',
+  g6_8: 'a student in grades 6-8 (middle school). Be clear and friendly, define technical terms the first time you use them, and explain step by step with examples.',
+  g9_10: 'a student in grades 9-10 (early high school). Use normal high-school vocabulary, with a quick definition for subject-specific terms.',
+  g11_12: 'a student in grades 11-12 (late high school, AP level). You can use subject vocabulary and go deeper into reasons and details.',
+  college: 'a college student. Use precise terminology, deeper reasoning and nuance.',
+  expert: 'an expert. Go into technical depth, assume background knowledge, and be concise.',
+};
+
+function systemPrompt(instructions, level) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/New_York' });
   let p = `You are Nova, a helpful, friendly AI assistant. Today is ${today}.
 - Answer clearly and get to the point. Use Markdown (headings, lists, tables, **bold**, code blocks with a language tag) when it makes things easier to read.
@@ -36,6 +48,7 @@ function systemPrompt(instructions) {
 - When the user attaches files or links, base your answer on their contents.
 - When the user attaches an image, look at it carefully and describe or use what you see.
 - If you don't know something, say so.`;
+  if (LEVELS[level]) p += `\n\nAnswer level: explain things so they are easy to understand for ${LEVELS[level]} Keep the facts accurate and complete: simplify the wording, not the truth. Code, math steps and quotes stay correct. Don't mention the level unless asked.`;
   if (instructions) p += `\n\nThe user set these custom instructions. Follow them unless they conflict with being honest and safe:\n${instructions}`;
   return p;
 }
@@ -144,7 +157,12 @@ async function callGroq({ history, web, sys, mode }) {
     const res2 = await call(base);
     return { res: res2, webFallback: res2.ok, envModel };
   }
-  const res = await call(base);
+  let res = await call(base);
+  // Each Groq model has its own free allowance, so if Smart is used up, try Fast.
+  if (res.status === 429 && pick === 'smart') {
+    const fast = await call({ ...base, model: GROQ_MODELS.fast() });
+    if (fast.ok) res = fast;
+  }
   return { res, webFallback: !!web, envModel };
 }
 
@@ -203,13 +221,26 @@ function providerOrder() {
   return order.filter((name) => process.env[KEY_ENV[name]]);
 }
 
-// ---------- Fair-use limit ----------
+// ---------- Credits ----------
 const LIMITS = () => ({
-  hour: +process.env.RATE_LIMIT_PER_HOUR || 30,
-  day: +process.env.RATE_LIMIT_PER_DAY || 150,
-  // Backstop per network (a whole school can share one address, so it's high).
-  ipHour: +process.env.RATE_LIMIT_IP_PER_HOUR || 400,
+  // Free messages per visitor per day (resets at midnight New York time).
+  day: +process.env.CREDITS_PER_DAY || +process.env.RATE_LIMIT_PER_DAY || 25,
+  // Spam guard: at most this many messages per minute per visitor.
+  minute: +process.env.RATE_LIMIT_PER_MINUTE || 5,
+  // Backstop for one network per day (a whole school can share one address).
+  ipDay: +process.env.RATE_LIMIT_IP_PER_DAY || 800,
 });
+
+// Today's date and seconds until midnight, in New York time.
+function etClock() {
+  const now = new Date();
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(now).map((x) => [x.type, x.value]));
+  const secs = +parts.hour * 3600 + +parts.minute * 60 + +parts.second;
+  return { day: `${parts.year}-${parts.month}-${parts.day}`, untilMidnight: Math.max(60, 86400 - secs), minute: Math.floor(now.getTime() / 60000) };
+}
 
 function redisConfig() {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
@@ -242,31 +273,89 @@ async function bump(keys) {
   });
 }
 
+async function redisPipeline(cmds) {
+  const redis = redisConfig();
+  const res = await fetch(`${redis.url}/pipeline`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${redis.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(cmds),
+  });
+  if (!res.ok) throw new Error('redis ' + res.status);
+  return res.json();
+}
+
+// Read counts without changing them.
+async function peek(keys) {
+  if (redisConfig()) {
+    const out = await redisPipeline(keys.map((k) => ['GET', k]));
+    return keys.map((_, i) => Number(out[i]?.result || 0));
+  }
+  const now = Date.now();
+  return keys.map((k) => { const e = memoryCounts.get(k); return e && e.exp >= now ? e.n : 0; });
+}
+
+// Give credits back (used when no AI could answer).
+async function unbump(keys) {
+  try {
+    if (redisConfig()) { await redisPipeline(keys.map((k) => ['DECR', k])); return; }
+    for (const k of keys) { const e = memoryCounts.get(k); if (e && e.n > 0) e.n--; }
+  } catch {}
+}
+
 async function sha(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function checkLimit(req, visitor) {
-  const L = LIMITS();
+async function visitorKeys(req, visitor) {
   const ip = (req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
-  const now = Math.floor(Date.now() / 1000);
-  const hour = Math.floor(now / 3600), day = Math.floor(now / 86400);
   // Visitors are told apart by a random id their browser keeps, plus their network.
   const who = await sha((/^[a-z0-9-]{8,64}$/i.test(visitor || '') ? visitor : 'anon') + '|' + ip);
   const net = await sha('ip|' + ip);
+  const c = etClock();
+  return {
+    clock: c,
+    dayKey: `nova:c:${who}:${c.day}`,
+    minuteKey: `nova:m:${who}:${c.minute}`,
+    ipDayKey: `nova:ipd:${net}:${c.day}`,
+  };
+}
+
+function resetText(secs) {
+  const h = Math.floor(secs / 3600), m = Math.ceil((secs % 3600) / 60);
+  return h ? `${h} hr ${m} min` : `${m} min`;
+}
+
+// How many credits this visitor has left, without using one.
+async function creditStatus(req, visitor) {
+  const L = LIMITS();
+  const k = await visitorKeys(req, visitor);
+  try {
+    const [used] = await peek([k.dayKey]);
+    return { total: L.day, remaining: Math.max(0, L.day - used), resetIn: k.clock.untilMidnight };
+  } catch {
+    return { total: L.day, remaining: null, resetIn: k.clock.untilMidnight };
+  }
+}
+
+// Use one credit. Returns ok:false with a friendly message when out.
+async function spendCredit(req, visitor) {
+  const L = LIMITS();
+  const k = await visitorKeys(req, visitor);
+  const ttlDay = k.clock.untilMidnight + 3600;
   let counts;
   try {
-    counts = await bump([[`nova:v:${who}:h:${hour}`, 3700], [`nova:v:${who}:d:${day}`, 90000], [`nova:ip:${net}:h:${hour}`, 3700]]);
+    counts = await bump([[k.dayKey, ttlDay], [k.minuteKey, 90], [k.ipDayKey, ttlDay]]);
   } catch {
-    return { ok: true, remaining: null }; // if the counter is down, don't block people
+    return { ok: true, remaining: null, total: L.day, refund: () => {} }; // if the counter is down, don't block people
   }
-  const [h, d, ipH] = counts;
-  const untilHour = 3600 - (now % 3600), untilDay = 86400 - (now % 86400);
-  if (d > L.day) return { ok: false, retry: untilDay, error: `You've used all ${L.day} of today's free messages. Come back tomorrow!` };
-  if (h > L.hour) return { ok: false, retry: untilHour, error: `You've reached the limit of ${L.hour} messages per hour. Try again in ${Math.ceil(untilHour / 60)} minutes.` };
-  if (ipH > L.ipHour) return { ok: false, retry: untilHour, error: `Lots of people on your network are using Nova right now. Try again in ${Math.ceil(untilHour / 60)} minutes.` };
-  return { ok: true, remaining: Math.min(L.hour - h, L.day - d) };
+  const [d, m, ipD] = counts;
+  const refund = () => unbump([k.dayKey, k.ipDayKey]);
+  const resetIn = k.clock.untilMidnight;
+  if (d > L.day) { await unbump([k.dayKey, k.ipDayKey]); return { ok: false, retry: resetIn, remaining: 0, total: L.day, error: `You've used all ${L.day} of today's free credits. They refill in ${resetText(resetIn)} (at midnight).` }; }
+  if (m > L.minute) { await refund(); return { ok: false, retry: 60, remaining: L.day - d + 1, total: L.day, error: "Whoa, that's a lot of messages at once! Wait a minute and try again." }; }
+  if (ipD > L.ipDay) { await refund(); return { ok: false, retry: resetIn, remaining: L.day - d + 1, total: L.day, error: 'So many people on your network used Nova today that the shared limit is used up. Try again tomorrow, or from a different network.' }; }
+  return { ok: true, remaining: L.day - d, total: L.day, resetIn, refund };
 }
 
 // ---------- Link reader ----------
@@ -372,11 +461,12 @@ function fitToBudget(history, budget) {
 export default async function handler(req) {
   // The page asks this once to know which features to show.
   if (req.method === 'GET') {
+    const visitor = new URL(req.url).searchParams.get('visitor') || '';
     return json({
+      credits: await creditStatus(req, visitor),
       web: !!(process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY),
       providers: providerOrder(),
       locked: !!process.env.SITE_PASSWORD,
-      limitPerHour: LIMITS().hour,
     });
   }
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -410,10 +500,10 @@ export default async function handler(req) {
     return json({ error: 'No message to answer.' }, 400);
   }
 
-  // Fair-use limit, checked only for real messages.
-  const limit = await checkLimit(req, body.visitor);
+  // Use one credit, only for real messages.
+  const limit = await spendCredit(req, body.visitor);
   if (!limit.ok) {
-    return new Response(JSON.stringify({ error: limit.error, limited: true }), {
+    return new Response(JSON.stringify({ error: limit.error, limited: true, credits: { total: limit.total, remaining: limit.remaining } }), {
       status: 429,
       headers: { 'Content-Type': 'application/json', 'Retry-After': String(limit.retry) },
     });
@@ -431,7 +521,7 @@ export default async function handler(req) {
   history = fitToBudget(history, MAX_CONTEXT_CHARS());
 
   const instructions = typeof body.instructions === 'string' ? body.instructions.slice(0, 1500).trim() : '';
-  const sys = systemPrompt(instructions);
+  const sys = systemPrompt(instructions, typeof body.level === 'string' ? body.level : '');
   const mode = body.model === 'fast' ? 'fast' : 'smart';
 
   let lastError = null;
@@ -455,7 +545,7 @@ export default async function handler(req) {
           'X-Provider': name,
           'X-Web-Fallback': webFallback ? '1' : '0',
           'X-Read-Links': encodeURIComponent(JSON.stringify(readLinks)),
-          ...(limit.remaining != null ? { 'X-Limit-Remaining': String(limit.remaining) } : {}),
+          ...(limit.remaining != null ? { 'X-Credits-Remaining': String(limit.remaining), 'X-Credits-Total': String(limit.total) } : {}),
         },
       });
     }
@@ -464,6 +554,8 @@ export default async function handler(req) {
     lastError = { status: res.status, error: friendlyError(name, res.status, text, envModel) };
   }
 
+  // Nobody answered, so give the credit back.
+  await limit.refund();
   if (!tried) return json({ error: 'None of the AI providers on this site can look at images right now. Try asking without the picture.' }, 503);
   if (busy === tried) return json({ error: "Nova is really busy right now and the free AI is maxed out. Try again in a minute or two." }, 503);
   return json({ error: lastError.error }, lastError.status);
